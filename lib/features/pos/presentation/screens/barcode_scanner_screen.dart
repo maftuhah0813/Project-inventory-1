@@ -1,3 +1,4 @@
+
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -11,10 +12,12 @@ import '../../../inventory/data/providers/product_provider.dart';
 
 /// Mode operasional scanner
 enum ScannerMode {
-  /// Mode Kasir: scan berulang-ulang tanpa menutup kamera, otomatis tambah ke keranjang
+  /// Mode Kasir: scan berulang-ulang tanpa menutup kamera,
+  /// otomatis tambah ke keranjang.
   continuousKasir,
 
-  /// Mode Tunggal: scan 1 barcode lalu langsung pop & return string barcode (untuk input master produk)
+  /// Mode Tunggal: scan 1 barcode lalu langsung pop
+  /// dan return string barcode (untuk input master produk).
   singleScan,
 }
 
@@ -32,21 +35,25 @@ class BarcodeScannerScreen extends ConsumerStatefulWidget {
     this.initialCartTotal = 0.0,
   });
 
-  /// Helper untuk membuka scanner dalam mode singleScan dan mengembalikan nilai barcode String
+  /// Helper untuk membuka scanner dalam mode singleScan
+  /// dan mengembalikan nilai barcode String.
   static Future<String?> scanSingleBarcode(BuildContext context) async {
     return Navigator.push<String>(
       context,
       MaterialPageRoute(
-        builder: (_) => const BarcodeScannerScreen(mode: ScannerMode.singleScan),
+        builder: (_) =>
+            const BarcodeScannerScreen(mode: ScannerMode.singleScan),
       ),
     );
   }
 
   @override
-  ConsumerState<BarcodeScannerScreen> createState() => _BarcodeScannerScreenState();
+  ConsumerState<BarcodeScannerScreen> createState() =>
+      _BarcodeScannerScreenState();
 }
 
-class _BarcodeScannerScreenState extends ConsumerState<BarcodeScannerScreen>
+class _BarcodeScannerScreenState
+    extends ConsumerState<BarcodeScannerScreen>
     with SingleTickerProviderStateMixin {
   late MobileScannerController _scannerController;
   late AnimationController _laserAnimController;
@@ -56,15 +63,18 @@ class _BarcodeScannerScreenState extends ConsumerState<BarcodeScannerScreen>
   bool _isTorchOn = false;
   CameraFacing _currentFacing = CameraFacing.back;
   bool _showManualInput = false;
-  final TextEditingController _manualTextController = TextEditingController();
 
-  // Terakhir kali di-scan (pencegah duplikasi beruntun instan pada barcode yang sama)
+  final TextEditingController _manualTextController =
+      TextEditingController();
+
+  // Terakhir kali di-scan (pencegah duplikasi barcode)
   String? _lastScannedCode;
   DateTime? _lastScannedTime;
 
   // Feedback produk terakhir yang di-scan
   ProductModel? _lastScannedProduct;
   String? _unrecognizedBarcode;
+
   int _sessionScanCount = 0;
   late int _liveCartCount;
   late double _liveCartTotal;
@@ -72,6 +82,7 @@ class _BarcodeScannerScreenState extends ConsumerState<BarcodeScannerScreen>
   @override
   void initState() {
     super.initState();
+
     _liveCartCount = widget.initialCartCount;
     _liveCartTotal = widget.initialCartTotal;
 
@@ -81,14 +92,20 @@ class _BarcodeScannerScreenState extends ConsumerState<BarcodeScannerScreen>
       torchEnabled: false,
     );
 
-    // Animasi garis laser pemindai bergerak naik-turun
+    // Animasi garis laser pemindai bergerak naik-turun.
     _laserAnimController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 1800),
     )..repeat(reverse: true);
 
-    _laserAnimation = Tween<double>(begin: 0.05, end: 0.95).animate(
-      CurvedAnimation(parent: _laserAnimController, curve: Curves.easeInOut),
+    _laserAnimation = Tween<double>(
+      begin: 0.05,
+      end: 0.95,
+    ).animate(
+      CurvedAnimation(
+        parent: _laserAnimController,
+        curve: Curves.easeInOut,
+      ),
     );
   }
 
@@ -100,12 +117,15 @@ class _BarcodeScannerScreenState extends ConsumerState<BarcodeScannerScreen>
     super.dispose();
   }
 
+  /// Menerima hasil deteksi barcode dari kamera.
   void _onDetect(BarcodeCapture capture) {
     final barcodes = capture.barcodes;
+
     if (barcodes.isEmpty) return;
 
     for (final barcode in barcodes) {
       final code = barcode.rawValue?.trim();
+
       if (code != null && code.isNotEmpty) {
         _processBarcode(code);
         break;
@@ -113,9 +133,12 @@ class _BarcodeScannerScreenState extends ConsumerState<BarcodeScannerScreen>
     }
   }
 
+  /// Memproses barcode yang berhasil dipindai.
   void _processBarcode(String code) {
     final now = DateTime.now();
-    // Debounce: jika barcode sama persis discan dalam < 1.4 detik, abaikan agar tidak dobel scan tidak sengaja
+
+    // Debounce: abaikan barcode yang sama
+    // jika dipindai dalam waktu kurang dari 1,4 detik.
     if (_lastScannedCode == code &&
         _lastScannedTime != null &&
         now.difference(_lastScannedTime!).inMilliseconds < 1400) {
@@ -125,25 +148,30 @@ class _BarcodeScannerScreenState extends ConsumerState<BarcodeScannerScreen>
     _lastScannedCode = code;
     _lastScannedTime = now;
 
-    // Haptic & Sound Feedback
+    // Haptic dan sound feedback.
     HapticFeedback.mediumImpact();
     SystemSound.play(SystemSoundType.click);
 
+    // Mode singleScan: langsung mengembalikan barcode.
     if (widget.mode == ScannerMode.singleScan) {
-      // Langsung return nilai barcode ke pemanggil
       Navigator.pop(context, code);
       return;
     }
 
-    // Mode Kasir: cari produk di daftar katalog
+    // Mode Kasir: cari produk dalam katalog.
     final allProducts = ref.read(productListProvider);
-    final matchIndex = allProducts.indexWhere((p) => p.skuBarcode == code);
+
+    final matchIndex = allProducts.indexWhere(
+      (p) => p.skuBarcode == code,
+    );
 
     setState(() {
       if (matchIndex != -1) {
         final product = allProducts[matchIndex];
+
         _lastScannedProduct = product;
         _unrecognizedBarcode = null;
+
         _sessionScanCount++;
         _liveCartCount++;
         _liveCartTotal += product.hargaJual;
@@ -152,20 +180,25 @@ class _BarcodeScannerScreenState extends ConsumerState<BarcodeScannerScreen>
       } else {
         _lastScannedProduct = null;
         _unrecognizedBarcode = code;
+
         HapticFeedback.heavyImpact();
       }
     });
   }
 
+  /// Mengaktifkan atau menonaktifkan lampu senter.
   void _toggleTorch() {
     _scannerController.toggleTorch();
+
     setState(() {
       _isTorchOn = !_isTorchOn;
     });
   }
 
+  /// Mengganti kamera depan dan belakang.
   void _switchCamera() {
     _scannerController.switchCamera();
+
     setState(() {
       _currentFacing = _currentFacing == CameraFacing.back
           ? CameraFacing.front
@@ -182,16 +215,19 @@ class _BarcodeScannerScreenState extends ConsumerState<BarcodeScannerScreen>
       backgroundColor: Colors.black,
       body: Stack(
         children: [
-          // 1. Live Camera Preview (MobileScanner)
+          // 1. Live Camera Preview.
           MobileScanner(
             controller: _scannerController,
             onDetect: _onDetect,
-            errorBuilder: (context, error, child) {
+
+            // API mobile_scanner 7.5.0:
+            // errorBuilder hanya menerima context dan error.
+            errorBuilder: (context, error) {
               return _buildCameraFallback(error);
             },
           ),
 
-          // 2. Custom Viewfinder Overlay dengan Jendela Bidik
+          // 2. Custom Viewfinder Overlay.
           Positioned.fill(
             child: _ScannerOverlayLayout(
               windowWidth: windowWidth,
@@ -200,20 +236,28 @@ class _BarcodeScannerScreenState extends ConsumerState<BarcodeScannerScreen>
             ),
           ),
 
-          // 3. Top Action Bar (Tombol Kembali, Senter, Switch Kamera, Input Manual)
+          // 3. Top Action Bar.
           SafeArea(
             child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              padding: const EdgeInsets.symmetric(
+                horizontal: 16,
+                vertical: 12,
+              ),
               child: Row(
                 children: [
                   CircleAvatar(
                     backgroundColor: Colors.black.withValues(alpha: 0.5),
                     child: IconButton(
-                      icon: const Icon(Icons.arrow_back_rounded, color: Colors.white),
+                      icon: const Icon(
+                        Icons.arrow_back_rounded,
+                        color: Colors.white,
+                      ),
                       onPressed: () => Navigator.pop(context),
                     ),
                   ),
+
                   const SizedBox(width: 12),
+
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -233,41 +277,59 @@ class _BarcodeScannerScreenState extends ConsumerState<BarcodeScannerScreen>
                           widget.mode == ScannerMode.continuousKasir
                               ? 'Arahkan kamera ke kemasan barang'
                               : 'Scan untuk mengisi kode SKU otomatis',
-                          style: const TextStyle(color: Colors.white70, fontSize: 11),
+                          style: const TextStyle(
+                            color: Colors.white70,
+                            fontSize: 11,
+                          ),
                         ),
                       ],
                     ),
                   ),
+
                   CircleAvatar(
                     backgroundColor: Colors.black.withValues(alpha: 0.5),
                     child: IconButton(
                       icon: Icon(
-                        _isTorchOn ? Icons.flash_on_rounded : Icons.flash_off_rounded,
+                        _isTorchOn
+                            ? Icons.flash_on_rounded
+                            : Icons.flash_off_rounded,
                         color: _isTorchOn ? Colors.amber : Colors.white,
                       ),
                       tooltip: 'Lampu Senter',
                       onPressed: _toggleTorch,
                     ),
                   ),
+
                   const SizedBox(width: 8),
+
                   CircleAvatar(
                     backgroundColor: Colors.black.withValues(alpha: 0.5),
                     child: IconButton(
-                      icon: const Icon(Icons.flip_camera_ios_rounded, color: Colors.white),
+                      icon: const Icon(
+                        Icons.flip_camera_ios_rounded,
+                        color: Colors.white,
+                      ),
                       tooltip: 'Balik Kamera',
                       onPressed: _switchCamera,
                     ),
                   ),
+
                   const SizedBox(width: 8),
+
                   CircleAvatar(
                     backgroundColor: _showManualInput
                         ? AppColors.accent
                         : Colors.black.withValues(alpha: 0.5),
                     child: IconButton(
-                      icon: const Icon(Icons.keyboard_rounded, color: Colors.white),
+                      icon: const Icon(
+                        Icons.keyboard_rounded,
+                        color: Colors.white,
+                      ),
                       tooltip: 'Ketik Barcode Manual',
                       onPressed: () {
-                        setState(() => _showManualInput = !_showManualInput);
+                        setState(() {
+                          _showManualInput = !_showManualInput;
+                        });
                       },
                     ),
                   ),
@@ -276,7 +338,7 @@ class _BarcodeScannerScreenState extends ConsumerState<BarcodeScannerScreen>
             ),
           ),
 
-          // 4. Panel Input Barcode Manual (Jika dibuka)
+          // 4. Panel Input Barcode Manual.
           if (_showManualInput)
             Positioned(
               top: 80,
@@ -285,15 +347,17 @@ class _BarcodeScannerScreenState extends ConsumerState<BarcodeScannerScreen>
               child: _buildManualInputCard(),
             ),
 
-          // 5. Floating Bottom Result Card (Produk berhasil discan / tidak ditemukan)
+          // 5. Floating Bottom Result Card.
           Positioned(
             left: 16,
             right: 16,
-            bottom: widget.mode == ScannerMode.continuousKasir ? 90 : 24,
+            bottom: widget.mode == ScannerMode.continuousKasir
+                ? 90
+                : 24,
             child: _buildScanFeedbackCard(),
           ),
 
-          // 6. Bottom Kasir Bar (Khusus mode continuousKasir)
+          // 6. Bottom Kasir Bar.
           if (widget.mode == ScannerMode.continuousKasir)
             Positioned(
               left: 0,
@@ -306,7 +370,7 @@ class _BarcodeScannerScreenState extends ConsumerState<BarcodeScannerScreen>
     );
   }
 
-  /// Tampilan jika kamera error atau diakses dari emulator/desktop tanpa webcam
+  /// Tampilan jika kamera error atau tidak tersedia.
   Widget _buildCameraFallback(MobileScannerException error) {
     return Container(
       color: const Color(0xFF0F172A),
@@ -315,29 +379,51 @@ class _BarcodeScannerScreenState extends ConsumerState<BarcodeScannerScreen>
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Icon(Icons.videocam_off_rounded, color: Colors.amber, size: 56),
+            const Icon(
+              Icons.videocam_off_rounded,
+              color: Colors.amber,
+              size: 56,
+            ),
+
             const SizedBox(height: 16),
+
             const Text(
               'Pratinjau Kamera Tidak Aktif',
-              style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 17),
+              style: TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.bold,
+                fontSize: 17,
+              ),
             ),
+
             const SizedBox(height: 8),
+
             Text(
               'Kamera fisik tidak terdeteksi atau sedang berjalan di Desktop/Simulator.\nAnda dapat menggunakan mode Input Barcode Manual di bawah ini:',
               textAlign: TextAlign.center,
-              style: TextStyle(color: Colors.white.withValues(alpha: 0.7), fontSize: 12),
+              style: TextStyle(
+                color: Colors.white.withValues(alpha: 0.7),
+                fontSize: 12,
+              ),
             ),
+
             const SizedBox(height: 20),
+
             ElevatedButton.icon(
               icon: const Icon(Icons.keyboard_rounded),
               label: const Text('Buka Input Barcode Manual'),
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppColors.accent,
                 foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 20,
+                  vertical: 12,
+                ),
               ),
               onPressed: () {
-                setState(() => _showManualInput = true);
+                setState(() {
+                  _showManualInput = true;
+                });
               },
             ),
           ],
@@ -346,11 +432,13 @@ class _BarcodeScannerScreenState extends ConsumerState<BarcodeScannerScreen>
     );
   }
 
-  /// Card Input Barcode Manual & Tombol Uji Cepat
+  /// Card Input Barcode Manual dan Tombol Uji Cepat.
   Widget _buildManualInputCard() {
     return Card(
       color: const Color(0xFF1E293B),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+      ),
       elevation: 8,
       child: Padding(
         padding: const EdgeInsets.all(16),
@@ -360,36 +448,67 @@ class _BarcodeScannerScreenState extends ConsumerState<BarcodeScannerScreen>
           children: [
             Row(
               children: [
-                const Icon(Icons.barcode_reader, color: AppColors.accent, size: 20),
+                const Icon(
+                  Icons.barcode_reader,
+                  color: AppColors.accent,
+                  size: 20,
+                ),
+
                 const SizedBox(width: 8),
+
                 const Text(
                   'Input Barcode / Reader USB',
-                  style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13),
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 13,
+                  ),
                 ),
+
                 const Spacer(),
+
                 IconButton(
-                  icon: const Icon(Icons.close, color: Colors.white70, size: 18),
+                  icon: const Icon(
+                    Icons.close,
+                    color: Colors.white70,
+                    size: 18,
+                  ),
                   padding: EdgeInsets.zero,
                   constraints: const BoxConstraints(),
-                  onPressed: () => setState(() => _showManualInput = false),
+                  onPressed: () {
+                    setState(() {
+                      _showManualInput = false;
+                    });
+                  },
                 ),
               ],
             ),
+
             const SizedBox(height: 10),
+
             Row(
               children: [
                 Expanded(
                   child: TextField(
                     controller: _manualTextController,
-                    style: const TextStyle(color: Colors.white, fontFamily: 'monospace'),
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontFamily: 'monospace',
+                    ),
                     keyboardType: TextInputType.text,
                     decoration: InputDecoration(
                       hintText: 'Ketik SKU (contoh: 899123456001)...',
-                      hintStyle: const TextStyle(color: Colors.white54, fontSize: 12),
+                      hintStyle: const TextStyle(
+                        color: Colors.white54,
+                        fontSize: 12,
+                      ),
                       filled: true,
                       fillColor: Colors.white.withValues(alpha: 0.1),
                       isDense: true,
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 10,
+                      ),
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(8),
                         borderSide: BorderSide.none,
@@ -403,31 +522,49 @@ class _BarcodeScannerScreenState extends ConsumerState<BarcodeScannerScreen>
                     },
                   ),
                 ),
+
                 const SizedBox(width: 8),
+
                 ElevatedButton(
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppColors.accent,
                     foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 14,
+                      vertical: 11,
+                    ),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
                   ),
                   onPressed: () {
                     final text = _manualTextController.text.trim();
+
                     if (text.isNotEmpty) {
                       _processBarcode(text);
                       _manualTextController.clear();
                     }
                   },
-                  child: const Text('Kirim', style: TextStyle(fontWeight: FontWeight.bold)),
+                  child: const Text(
+                    'Kirim',
+                    style: TextStyle(fontWeight: FontWeight.bold),
+                  ),
                 ),
               ],
             ),
+
             const SizedBox(height: 10),
+
             const Text(
               'Uji Cepat Barcode Katalog:',
-              style: TextStyle(color: Colors.white70, fontSize: 11),
+              style: TextStyle(
+                color: Colors.white70,
+                fontSize: 11,
+              ),
             ),
+
             const SizedBox(height: 6),
+
             SingleChildScrollView(
               scrollDirection: Axis.horizontal,
               child: Row(
@@ -448,27 +585,39 @@ class _BarcodeScannerScreenState extends ConsumerState<BarcodeScannerScreen>
     );
   }
 
+  /// Chip untuk pengujian barcode katalog.
   Widget _buildQuickTestChip(String sku, String label) {
     return ActionChip(
       backgroundColor: Colors.white.withValues(alpha: 0.15),
       padding: const EdgeInsets.symmetric(horizontal: 4),
-      label: Text('$label ($sku)', style: const TextStyle(color: Colors.white, fontSize: 10)),
+      label: Text(
+        '$label ($sku)',
+        style: const TextStyle(
+          color: Colors.white,
+          fontSize: 10,
+        ),
+      ),
       onPressed: () {
         _processBarcode(sku);
       },
     );
   }
 
-  /// Card Feedback saat barcode berhasil dikenali atau tidak terdaftar
+  /// Card Feedback saat barcode berhasil dikenali
+  /// atau tidak terdaftar.
   Widget _buildScanFeedbackCard() {
     if (_lastScannedProduct != null) {
       final p = _lastScannedProduct!;
+
       return Container(
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
           color: const Color(0xFF0F172A).withValues(alpha: 0.95),
           borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: AppColors.accent, width: 1.5),
+          border: Border.all(
+            color: AppColors.accent,
+            width: 1.5,
+          ),
           boxShadow: [
             BoxShadow(
               color: AppColors.accent.withValues(alpha: 0.3),
@@ -485,9 +634,15 @@ class _BarcodeScannerScreenState extends ConsumerState<BarcodeScannerScreen>
                 color: AppColors.accent,
                 shape: BoxShape.circle,
               ),
-              child: const Icon(Icons.check_rounded, color: Colors.white, size: 20),
+              child: const Icon(
+                Icons.check_rounded,
+                color: Colors.white,
+                size: 20,
+              ),
             ),
+
             const SizedBox(width: 12),
+
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -503,16 +658,25 @@ class _BarcodeScannerScreenState extends ConsumerState<BarcodeScannerScreen>
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
+
                   const SizedBox(height: 2),
+
                   Text(
                     '${CurrencyFormatter.format(p.hargaJual)} • SKU: ${p.skuBarcode}',
-                    style: const TextStyle(color: Colors.white70, fontSize: 11),
+                    style: const TextStyle(
+                      color: Colors.white70,
+                      fontSize: 11,
+                    ),
                   ),
                 ],
               ),
             ),
+
             Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              padding: const EdgeInsets.symmetric(
+                horizontal: 8,
+                vertical: 4,
+              ),
               decoration: BoxDecoration(
                 color: AppColors.accent.withValues(alpha: 0.2),
                 borderRadius: BorderRadius.circular(6),
@@ -538,12 +702,21 @@ class _BarcodeScannerScreenState extends ConsumerState<BarcodeScannerScreen>
         decoration: BoxDecoration(
           color: const Color(0xFF0F172A).withValues(alpha: 0.95),
           borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: AppColors.ewsCritical, width: 1.5),
+          border: Border.all(
+            color: AppColors.ewsCritical,
+            width: 1.5,
+          ),
         ),
         child: Row(
           children: [
-            const Icon(Icons.warning_amber_rounded, color: AppColors.ewsCritical, size: 24),
+            const Icon(
+              Icons.warning_amber_rounded,
+              color: AppColors.ewsCritical,
+              size: 24,
+            ),
+
             const SizedBox(width: 12),
+
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -557,9 +730,13 @@ class _BarcodeScannerScreenState extends ConsumerState<BarcodeScannerScreen>
                       fontSize: 13,
                     ),
                   ),
+
                   Text(
                     'Kode: $_unrecognizedBarcode',
-                    style: const TextStyle(color: Colors.white70, fontSize: 11),
+                    style: const TextStyle(
+                      color: Colors.white70,
+                      fontSize: 11,
+                    ),
                   ),
                 ],
               ),
@@ -572,13 +749,17 @@ class _BarcodeScannerScreenState extends ConsumerState<BarcodeScannerScreen>
     return const SizedBox.shrink();
   }
 
-  /// Bottom Bar Kasir: menampilkan total barang dan tombol selesai
+  /// Bottom Bar Kasir: menampilkan total barang dan tombol selesai.
   Widget _buildKasirBottomBar() {
     return Container(
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 20),
       decoration: BoxDecoration(
         color: const Color(0xFF0F172A),
-        border: Border(top: BorderSide(color: Colors.white.withValues(alpha: 0.15))),
+        border: Border(
+          top: BorderSide(
+            color: Colors.white.withValues(alpha: 0.15),
+          ),
+        ),
       ),
       child: SafeArea(
         top: false,
@@ -591,15 +772,26 @@ class _BarcodeScannerScreenState extends ConsumerState<BarcodeScannerScreen>
                 children: [
                   Row(
                     children: [
-                      const Icon(Icons.shopping_bag_outlined, color: AppColors.accent, size: 16),
+                      const Icon(
+                        Icons.shopping_bag_outlined,
+                        color: AppColors.accent,
+                        size: 16,
+                      ),
+
                       const SizedBox(width: 6),
+
                       Text(
                         '$_liveCartCount Item di Keranjang',
-                        style: const TextStyle(color: Colors.white70, fontSize: 12),
+                        style: const TextStyle(
+                          color: Colors.white70,
+                          fontSize: 12,
+                        ),
                       ),
                     ],
                   ),
+
                   const SizedBox(height: 2),
+
                   Text(
                     CurrencyFormatter.format(_liveCartTotal),
                     style: const TextStyle(
@@ -611,17 +803,30 @@ class _BarcodeScannerScreenState extends ConsumerState<BarcodeScannerScreen>
                 ],
               ),
             ),
+
             ElevatedButton.icon(
-              icon: const Icon(Icons.check_circle_outline_rounded, size: 18),
+              icon: const Icon(
+                Icons.check_circle_outline_rounded,
+                size: 18,
+              ),
               label: Text(
-                _sessionScanCount > 0 ? 'Selesai ($_sessionScanCount Baru)' : 'Selesai Scan',
-                style: const TextStyle(fontWeight: FontWeight.bold),
+                _sessionScanCount > 0
+                    ? 'Selesai ($_sessionScanCount Baru)'
+                    : 'Selesai Scan',
+                style: const TextStyle(
+                  fontWeight: FontWeight.bold,
+                ),
               ),
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppColors.accent,
                 foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 18,
+                  vertical: 14,
+                ),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
               ),
               onPressed: () => Navigator.pop(context),
             ),
@@ -632,7 +837,8 @@ class _BarcodeScannerScreenState extends ConsumerState<BarcodeScannerScreen>
   }
 }
 
-/// Custom Viewfinder Overlay dengan sudut hijau dan garis laser pemindai
+/// Custom Viewfinder Overlay dengan sudut hijau
+/// dan garis laser pemindai.
 class _ScannerOverlayLayout extends StatelessWidget {
   final double windowWidth;
   final double windowHeight;
@@ -656,7 +862,7 @@ class _ScannerOverlayLayout extends StatelessWidget {
 
         return Stack(
           children: [
-            // Gelap di luar jendela pemindaian
+            // Gelap di luar jendela pemindaian.
             ColorFiltered(
               colorFilter: ColorFilter.mode(
                 Colors.black.withValues(alpha: 0.55),
@@ -670,6 +876,7 @@ class _ScannerOverlayLayout extends StatelessWidget {
                       backgroundBlendMode: BlendMode.dstOut,
                     ),
                   ),
+
                   Positioned(
                     left: left,
                     top: top,
@@ -686,18 +893,20 @@ class _ScannerOverlayLayout extends StatelessWidget {
               ),
             ),
 
-            // 4 Sudut Bidik Hijau (Viewfinder Brackets)
+            // 4 Sudut Bidik Hijau.
             Positioned(
               left: left,
               top: top,
               width: windowWidth,
               height: windowHeight,
               child: CustomPaint(
-                painter: _ViewfinderBracketPainter(color: AppColors.accent),
+                painter: _ViewfinderBracketPainter(
+                  color: AppColors.accent,
+                ),
               ),
             ),
 
-            // Garis Laser Pemindai Bergerak
+            // Garis Laser Pemindai Bergerak.
             Positioned(
               left: left + 8,
               top: top,
@@ -738,7 +947,7 @@ class _ScannerOverlayLayout extends StatelessWidget {
               ),
             ),
 
-            // Hint Text di bawah jendela
+            // Hint Text di bawah jendela.
             Positioned(
               left: 20,
               right: 20,
@@ -751,7 +960,12 @@ class _ScannerOverlayLayout extends StatelessWidget {
                     color: Colors.white,
                     fontSize: 12,
                     fontWeight: FontWeight.w500,
-                    shadows: [Shadow(color: Colors.black, blurRadius: 6)],
+                    shadows: [
+                      Shadow(
+                        color: Colors.black,
+                        blurRadius: 6,
+                      ),
+                    ],
                   ),
                 ),
               ),
@@ -763,10 +977,13 @@ class _ScannerOverlayLayout extends StatelessWidget {
   }
 }
 
-/// Painter untuk 4 sudut siku-siku jendela bidik
+/// Painter untuk 4 sudut siku-siku jendela bidik.
 class _ViewfinderBracketPainter extends CustomPainter {
   final Color color;
-  const _ViewfinderBracketPainter({required this.color});
+
+  const _ViewfinderBracketPainter({
+    required this.color,
+  });
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -781,34 +998,47 @@ class _ViewfinderBracketPainter extends CustomPainter {
 
     final path = Path();
 
-    // Kiri Atas
+    // Kiri Atas.
     path.moveTo(0, cornerLength);
     path.lineTo(0, radius);
-    path.arcToPoint(const Offset(radius, 0), radius: const Radius.circular(radius));
+    path.arcToPoint(
+      const Offset(radius, 0),
+      radius: const Radius.circular(radius),
+    );
     path.lineTo(cornerLength, 0);
 
-    // Kanan Atas
+    // Kanan Atas.
     path.moveTo(size.width - cornerLength, 0);
     path.lineTo(size.width - radius, 0);
-    path.arcToPoint(Offset(size.width, radius), radius: const Radius.circular(radius));
+    path.arcToPoint(
+      Offset(size.width, radius),
+      radius: const Radius.circular(radius),
+    );
     path.lineTo(size.width, cornerLength);
 
-    // Kiri Bawah
+    // Kiri Bawah.
     path.moveTo(0, size.height - cornerLength);
     path.lineTo(0, size.height - radius);
-    path.arcToPoint(Offset(radius, size.height), radius: const Radius.circular(radius));
+    path.arcToPoint(
+      Offset(radius, size.height),
+      radius: const Radius.circular(radius),
+    );
     path.lineTo(cornerLength, size.height);
 
-    // Kanan Bawah
+    // Kanan Bawah.
     path.moveTo(size.width - cornerLength, size.height);
     path.lineTo(size.width - radius, size.height);
-    path.arcToPoint(Offset(size.width, size.height - radius), radius: const Radius.circular(radius));
+    path.arcToPoint(
+      Offset(size.width, size.height - radius),
+      radius: const Radius.circular(radius),
+    );
     path.lineTo(size.width, size.height - cornerLength);
 
     canvas.drawPath(path, paint);
   }
 
   @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+  bool shouldRepaint(covariant CustomPainter oldDelegate) {
+    return false;
+  }
 }
-
