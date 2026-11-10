@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "3821962303",
+    "project_id": "maftuhah-mobile-kasir",
+    "storage_bucket": "maftuhah-mobile-kasir.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:3821962303:android:7d3eb009e3e317bdd4648a",
+        "android_client_info": {
+          "package_name": "com.maftuhah.maftuhah_mobile"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAdye-5zaS7NrHcJF5APbSlGTZYqwGIrXg"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
